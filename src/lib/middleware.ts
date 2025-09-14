@@ -1,18 +1,15 @@
 // lib/middleware.ts
 import { verifyToken, AuthPayload } from './auth';
-import { prisma } from './prisma';
 
 export type AuthRequest = Request & {
-  user: AuthPayload & { plan?: 'Free' | 'Pro' }; 
+  user: AuthPayload & { plan?: 'Free' | 'Pro' };
 };
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 
-
-export function requireAuth(
-  handler: (req: AuthRequest, context?: { params?: Record<string, string> }) => Promise<Response>
+// Generic wrapper preserving RouteContext
+export function requireAuth<T extends { params: Record<string, string> }>(
+  handler: (req: AuthRequest, context: T) => Promise<Response>
 ) {
-  return async (req: Request, context?: { params?: Record<string, string> }): Promise<Response> => {
+  return async (req: AuthRequest, context: T): Promise<Response> => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401 });
@@ -28,14 +25,3 @@ export function requireAuth(
     }
   };
 }
-
-export async function enforceTenantOwnership(
-  req: AuthRequest,
-  resourceTenantId: string
-): Promise<Response | null> {
-  if (req.user.tenantId !== resourceTenantId) {
-    return new Response(JSON.stringify({ error: 'Resource not found' }), { status: 404 });
-  }
-  return null;
-}
-
