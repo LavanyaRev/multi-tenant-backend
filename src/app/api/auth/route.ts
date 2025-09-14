@@ -11,4 +11,4 @@ const handler = async (req: AuthRequest) => {
   return NextResponse.json(notes);
 };
 
-export const GET = requireAuth(handler);
+export const GET = requireAuth(handler) as (req: Request) => Promise<Response>;
