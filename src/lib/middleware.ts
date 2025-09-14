@@ -1,20 +1,21 @@
 // lib/middleware.ts
 import { verifyToken, AuthPayload } from './auth';
-import { prisma } from './prisma'; // assuming you're using Prisma
+import { prisma } from './prisma'; // Prisma client
 
 export type AuthRequest = Request & {
-  user: AuthPayload & { plan?: 'Free' | 'Pro' }; // include plan if needed
+  user: AuthPayload & { plan?: 'Free' | 'Pro' };
 };
 
 /**
  * requireAuth
  * - Verifies JWT
  * - Attaches user info to req.user
+ * - Works for static and dynamic routes
  */
 export function requireAuth(
-  handler: (req: AuthRequest, context: { params: Record<string, string> }) => Promise<Response>
+  handler: (req: AuthRequest, context?: { params: Record<string, string> }) => Promise<Response>
 ) {
-  return async (req: Request, context: { params: Record<string, string> }): Promise<Response> => {
+  return async (req: Request, context?: { params: Record<string, string> }): Promise<Response> => {
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401 });
@@ -23,9 +24,9 @@ export function requireAuth(
     const token = authHeader.split(' ')[1];
 
     try {
-      const user = verifyToken(token); // { id, email, tenantId, role }
+      const user = verifyToken(token);
 
-      // Optionally fetch tenant info (like plan)
+      // Optionally fetch tenant info like plan
       const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
       (req as AuthRequest).user = { ...user, plan: tenant?.plan ?? 'Free' };
 
@@ -41,7 +42,7 @@ export function requireAuth(
  * - Only allows Admin users
  */
 export function requireAdmin(
-  handler: (req: AuthRequest, context: { params: Record<string, string> }) => Promise<Response>
+  handler: (req: AuthRequest, context?: { params: Record<string, string> }) => Promise<Response>
 ) {
   return requireAuth(async (req: AuthRequest, context) => {
     if (req.user.role !== 'Admin') {
