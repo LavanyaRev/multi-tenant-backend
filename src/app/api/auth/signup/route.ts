@@ -49,8 +49,11 @@ export const POST = async (req: NextRequest) => {
     const token = signToken(payload, '1h');
 
     return NextResponse.json({ token, user: newUser }, { status: 201 });
-  } catch (error: any) {
-    console.error(error);
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 };
