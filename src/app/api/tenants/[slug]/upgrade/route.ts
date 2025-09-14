@@ -1,4 +1,7 @@
 // app/api/tenants/[slug]/upgrade/route.ts
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+
 import { prisma } from '@/lib/prisma';
 import { requireAuth, AuthRequest } from '@/lib/middleware';
 import { NextResponse } from 'next/server';

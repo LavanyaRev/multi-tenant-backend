@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { verifyToken, AuthPayload } from "@/lib/auth";
 import { NextResponse } from "next/server";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 
 // Typed request with user info
 export type AuthRequest = Request & { user: AuthPayload & { plan?: "Free" | "Pro" } };

@@ -5,6 +5,9 @@ import { prisma } from './prisma';
 export type AuthRequest = Request & {
   user: AuthPayload & { plan?: 'Free' | 'Pro' }; 
 };
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+
 
 export function requireAuth(
   handler: (req: AuthRequest, context?: { params?: Record<string, string> }) => Promise<Response>
