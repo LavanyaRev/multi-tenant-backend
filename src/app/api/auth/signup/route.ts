@@ -5,17 +5,20 @@ import { hashPassword, signToken, AuthPayload } from '@/lib/auth';
 
 export const POST = async (req: NextRequest) => {
   try {
-    const { email, password, tenantSlug, role } = await req.json();
+    const body = await req.json();
+    const { email, password, tenantSlug, role } = body as {
+      email: string;
+      password: string;
+      tenantSlug: string;
+      role?: string;
+    };
 
     if (!email || !password || !tenantSlug) {
-      return NextResponse.json({ error: 'Missing fields.' }, { status: 400 });
+      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
     }
 
-    // Find the tenant
-    const tenant = await prisma.tenant.findUnique({
-      where: { slug: tenantSlug },
-    });
-
+    // Find tenant
+    const tenant = await prisma.tenant.findUnique({ where: { slug: tenantSlug } });
     if (!tenant) {
       return NextResponse.json({ error: 'Tenant not found.' }, { status: 404 });
     }
@@ -27,14 +30,14 @@ export const POST = async (req: NextRequest) => {
     }
 
     // Hash password
-    const hashedPassword = hashPassword(password);
+    const hashedPassword = await hashPassword(password);
 
     // Create user
     const newUser = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        role: role || 'Member',
+        role: role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
         tenantId: tenant.id,
       },
     });
@@ -45,15 +48,11 @@ export const POST = async (req: NextRequest) => {
       tenantId: tenant.id,
       role: newUser.role as 'Admin' | 'Member',
     };
-
     const token = signToken(payload, '1h');
 
     return NextResponse.json({ token, user: newUser }, { status: 201 });
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error(error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+  } catch (err: unknown) {
+    console.error('Signup error:', err);
     return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
   }
 };

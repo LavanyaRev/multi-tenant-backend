@@ -1,75 +1,59 @@
-// app/api/notes/[id]/route.ts
+// src/app/api/notes/[id]/route.ts
 import { prisma } from "@/lib/prisma";
 import { requireAuth, AuthRequest } from "@/lib/middleware";
+import { NextResponse } from "next/server";
 
-// App Router always passes context.params as Record<string, string>
+// GET /api/notes/:id → fetch note
 export const GET = requireAuth(async (req: AuthRequest, { params }: { params: Record<string, string> }) => {
   const id = params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing note ID" }), { status: 400 });
+    return NextResponse.json({ error: "Missing note ID" }, { status: 400 });
   }
 
-  const note = await prisma.note.findFirst({
-    where: { id, tenantId: req.user.tenantId },
-  });
-
+  const note = await prisma.note.findFirst({ where: { id, tenantId: req.user.tenantId } });
   if (!note) {
-    return new Response(JSON.stringify({ error: "Note not found" }), { status: 404 });
+    return NextResponse.json({ error: "Note not found" }, { status: 404 });
   }
 
-  return new Response(JSON.stringify(note), { status: 200 });
+  return NextResponse.json(note, { status: 200 });
 });
 
+// PUT /api/notes/:id → update note
 export const PUT = requireAuth(async (req: AuthRequest, { params }: { params: Record<string, string> }) => {
   const id = params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing note ID" }), { status: 400 });
+    return NextResponse.json({ error: "Missing note ID" }, { status: 400 });
   }
 
   const body = await req.json();
+  const existing = await prisma.note.findFirst({ where: { id, tenantId: req.user.tenantId } });
 
-  const existing = await prisma.note.findFirst({
-    where: { id, tenantId: req.user.tenantId },
-  });
-
-  if (!existing) {
-    return new Response(JSON.stringify({ error: "Note not found" }), { status: 404 });
-  }
-
+  if (!existing) return NextResponse.json({ error: "Note not found" }, { status: 404 });
   if (req.user.role !== "Admin" && existing.userId !== req.user.userId) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const updated = await prisma.note.update({
     where: { id },
-    data: {
-      title: body.title,
-      content: body.content,
-    },
+    data: { title: body.title, content: body.content },
   });
 
-  return new Response(JSON.stringify(updated), { status: 200 });
+  return NextResponse.json(updated, { status: 200 });
 });
 
+// DELETE /api/notes/:id → delete note
 export const DELETE = requireAuth(async (req: AuthRequest, { params }: { params: Record<string, string> }) => {
   const id = params.id;
   if (!id) {
-    return new Response(JSON.stringify({ error: "Missing note ID" }), { status: 400 });
+    return NextResponse.json({ error: "Missing note ID" }, { status: 400 });
   }
 
-  const existing = await prisma.note.findFirst({
-    where: { id, tenantId: req.user.tenantId },
-  });
-
-  if (!existing) {
-    return new Response(JSON.stringify({ error: "Note not found" }), { status: 404 });
-  }
-
+  const existing = await prisma.note.findFirst({ where: { id, tenantId: req.user.tenantId } });
+  if (!existing) return NextResponse.json({ error: "Note not found" }, { status: 404 });
   if (req.user.role !== "Admin" && existing.userId !== req.user.userId) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   await prisma.note.delete({ where: { id } });
-
   return new Response(null, { status: 204 });
 });
