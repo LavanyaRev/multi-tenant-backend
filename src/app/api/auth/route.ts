@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireAuth } from '@/lib/middleware';
+import { requireAuth, AuthRequest } from '@/lib/middleware';
 
-const handler = async (req: any) => {
-  const { user } = req; // comes from requireAuth
+// handler function
+const handler = async (req: AuthRequest) => {
+  const user = req.user; // comes from requireAuth
   const notes = await prisma.note.findMany({
     where: { tenantId: user.tenantId },
   });
+
   return NextResponse.json(notes);
 };
 
