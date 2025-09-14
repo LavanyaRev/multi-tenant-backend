@@ -5,26 +5,34 @@ import { verifyPassword, signToken, AuthPayload } from '@/lib/auth';
 
 export const POST = async (req: NextRequest) => {
   try {
+    // Validate body
     const body = await req.json();
-    const { email, password } = body as { email: string; password: string };
+    const { email, password } = body as { email?: string; password?: string };
 
     if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      );
     }
 
+    // Find user
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
+    // Verify password
     const isValid = await verifyPassword(password, user.password);
     if (!isValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Normalize role for AuthPayload
-    const role = user.role.toLowerCase() === 'admin' ? 'Admin' : 'Member';
+    // Normalize role
+    const role: 'Admin' | 'Member' =
+      user.role.toLowerCase() === 'admin' ? 'Admin' : 'Member';
 
+    // Create JWT
     const payload: AuthPayload = {
       userId: user.id,
       tenantId: user.tenantId,
@@ -34,8 +42,11 @@ export const POST = async (req: NextRequest) => {
     const token = signToken(payload, '8h');
 
     return NextResponse.json({ token, user });
-  } catch (err) {
-    console.error('Login error:', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  } catch (err: unknown) {
+    console.error('Login error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 };

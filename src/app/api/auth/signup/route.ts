@@ -5,16 +5,20 @@ import { hashPassword, signToken, AuthPayload } from '@/lib/auth';
 
 export const POST = async (req: NextRequest) => {
   try {
+    // Validate body
     const body = await req.json();
     const { email, password, tenantSlug, role } = body as {
-      email: string;
-      password: string;
-      tenantSlug: string;
+      email?: string;
+      password?: string;
+      tenantSlug?: string;
       role?: string;
     };
 
     if (!email || !password || !tenantSlug) {
-      return NextResponse.json({ error: 'Missing required fields.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Missing required fields.' },
+        { status: 400 }
+      );
     }
 
     // Find tenant
@@ -32,27 +36,36 @@ export const POST = async (req: NextRequest) => {
     // Hash password
     const hashedPassword = await hashPassword(password);
 
+    // Normalize role
+const userRole: 'ADMIN' | 'MEMBER' =
+  role?.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'MEMBER';
+
     // Create user
     const newUser = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        role: role === 'ADMIN' ? 'ADMIN' : 'MEMBER',
+        role: userRole,
         tenantId: tenant.id,
       },
     });
 
-    // Generate JWT
-    const payload: AuthPayload = {
-      userId: newUser.id,
-      tenantId: tenant.id,
-      role: newUser.role as 'Admin' | 'Member',
-    };
+const authRole: 'Admin' | 'Member' = newUser.role === 'ADMIN' ? 'Admin' : 'Member';
+
+const payload: AuthPayload = {
+  userId: newUser.id,
+  tenantId: tenant.id,
+  role: authRole,
+};
+
     const token = signToken(payload, '1h');
 
     return NextResponse.json({ token, user: newUser }, { status: 201 });
   } catch (err: unknown) {
-    console.error('Signup error:', err);
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+    console.error('Signup error:', err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: 'Internal server error.' },
+      { status: 500 }
+    );
   }
 };

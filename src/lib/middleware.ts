@@ -16,19 +16,23 @@ export function requireAuth(
     }
 
     const token = authHeader.split(' ')[1];
-
     try {
       const user = verifyToken(token);
-
-      // Fetch tenant and normalize plan to match AuthRequest type
-      const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
-      const plan = tenant?.plan === 'FREE' ? 'Free' : tenant?.plan === 'PRO' ? 'Pro' : undefined;
-
-      (req as AuthRequest).user = { ...user, plan };
-
+      (req as AuthRequest).user = user;
       return handler(req as AuthRequest, context);
     } catch {
       return new Response(JSON.stringify({ error: 'Invalid or expired token' }), { status: 401 });
     }
   };
 }
+
+export async function enforceTenantOwnership(
+  req: AuthRequest,
+  resourceTenantId: string
+): Promise<Response | null> {
+  if (req.user.tenantId !== resourceTenantId) {
+    return new Response(JSON.stringify({ error: 'Resource not found' }), { status: 404 });
+  }
+  return null;
+}
+

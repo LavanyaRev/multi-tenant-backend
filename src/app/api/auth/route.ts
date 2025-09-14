@@ -1,3 +1,4 @@
+// app/api/auth/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth, AuthRequest } from '@/lib/middleware';
@@ -11,4 +12,5 @@ const handler = async (req: AuthRequest) => {
   return NextResponse.json(notes);
 };
 
-export const GET = requireAuth(handler) as (req: Request) => Promise<Response>;
+// ✅ no casting needed
+export const GET = requireAuth(handler);

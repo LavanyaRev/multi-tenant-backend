@@ -1,12 +1,11 @@
-// src/app/api/notes/route.ts
 import { prisma } from "@/lib/prisma";
 import { verifyToken, AuthPayload } from "@/lib/auth";
 import { NextResponse } from "next/server";
 
-// Typed request with attached user
-type AuthRequest = Request & { user: AuthPayload };
+// Typed request with user info
+export type AuthRequest = Request & { user: AuthPayload & { plan?: "Free" | "Pro" } };
 
-// App Router-compatible auth wrapper
+// Auth wrapper compatible with App Router
 export function requireAuth(
   handler: (req: AuthRequest) => Promise<Response>
 ) {
@@ -16,10 +15,16 @@ export function requireAuth(
       return NextResponse.json({ error: "Missing Authorization" }, { status: 401 });
     }
 
-    const token = authHeader.split(" ")[1];
     try {
+      const token = authHeader.split(" ")[1];
       const user = verifyToken(token);
-      (req as AuthRequest).user = user;
+
+      // Fetch tenant plan
+      const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
+      const plan = tenant?.plan === "FREE" ? "Free" : "Pro";
+
+      (req as AuthRequest).user = { ...user, plan };
+
       return handler(req as AuthRequest);
     } catch {
       return NextResponse.json({ error: "Invalid or expired token" }, { status: 401 });
@@ -27,33 +32,33 @@ export function requireAuth(
   };
 }
 
-// GET /api/notes → list all notes for tenant
+// GET /api/notes
 export const GET = requireAuth(async (req: AuthRequest) => {
-  const notes = await prisma.note.findMany({
-    where: { tenantId: req.user.tenantId },
-  });
-
+  const notes = await prisma.note.findMany({ where: { tenantId: req.user.tenantId } });
   const res = NextResponse.json(notes, { status: 200 });
   res.headers.set("Access-Control-Allow-Origin", "*");
   return res;
 });
 
-// POST /api/notes → create a new note (enforces Free plan limit)
+// POST /api/notes
 export const POST = requireAuth(async (req: AuthRequest) => {
   const body = await req.json();
   const user = req.user;
 
+  // Fetch tenant
   const tenant = await prisma.tenant.findUnique({ where: { id: user.tenantId } });
-  if (!tenant) {
-    return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
-  }
+  if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
 
-  // Free plan limit: max 3 notes
+  // Normalize plan
+  const plan = tenant.plan === "FREE" ? "Free" : "Pro";
+
+  // Free plan limit
   const noteCount = await prisma.note.count({ where: { tenantId: user.tenantId } });
-  if (tenant.plan === "FREE" && noteCount >= 3) {
+  if (plan === "Free" && noteCount >= 3) {
     return NextResponse.json({ error: "Free plan limit reached. Upgrade to Pro." }, { status: 403 });
   }
 
+  // Create note
   const note = await prisma.note.create({
     data: {
       title: body.title,
